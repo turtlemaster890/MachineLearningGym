@@ -3,7 +3,6 @@ from collections.abc import Callable
 
 from Brain import Brain, Neuron, sigmoid
 
-
 class Agent:
     @staticmethod
     def _create_brain(input_size: int, hidden_layer_sizes: list[int], output_size: int, activation_function: Callable[[float], float]) -> Brain:

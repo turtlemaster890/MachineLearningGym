@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import math
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TypedDict
 
 
 @dataclass
@@ -11,6 +15,20 @@ class Neuron:
 
     def copy(self):
         return Neuron(self.weights.copy(), self.bias, self.output)
+
+    @classmethod
+    def from_dict(cls, data: NeuronDict) -> Neuron:
+        return cls(data["weights"], data["bias"], data["output"])
+
+class NeuronDict(TypedDict):
+    weights: list[float]
+    bias: float
+    output: float
+
+class BrainDict(TypedDict):
+    inputSize: int
+    hiddenLayers: list[list[NeuronDict]]
+    outputLayer: list[NeuronDict]
 
 def sigmoid(x: float) -> float:
     return 1 / (1 + pow(math.e, -x))
@@ -56,3 +74,38 @@ class Brain:
         self.set_input(inputData)
         self._forward_propagate()
         return self.get_output()
+
+    def _save(self) -> BrainDict:
+        return {
+            "inputSize": len(self.inputLayer),
+            "hiddenLayers": [
+                [
+                    {"weights": neuron.weights, "bias": neuron.bias, "output": neuron.output}
+                    for neuron in layer
+                ]
+                for layer in self.hiddenLayers
+            ],
+            "outputLayer": [
+                {"weights": neuron.weights, "bias": neuron.bias, "output": neuron.output}
+                for neuron in self.outputLayer
+            ]
+        }
+
+    def save(self, filename: str):
+        with open(filename, "w") as f:
+            json.dump(self._save(), f, indent=4)
+
+    @classmethod
+    def _load(cls, data: BrainDict, activation_function: Callable[[float], float] = sigmoid) -> Brain:
+        hidden_layers = [
+            [Neuron.from_dict(neuron_data) for neuron_data in layer_data]
+            for layer_data in data["hiddenLayers"]
+        ]
+        output_layer = [Neuron.from_dict(neuron_data) for neuron_data in data["outputLayer"]]
+        return cls(data["inputSize"], hidden_layers, output_layer, activation_function)
+
+    @classmethod
+    def load(cls, filename: str, activation_function: Callable[[float], float] = sigmoid) -> Brain:
+        with open(filename, "r") as f:
+            data = json.load(f)
+        return cls._load(data, activation_function)
