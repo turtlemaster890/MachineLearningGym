@@ -168,7 +168,7 @@ demo_training_data: dict[int, list[list[list[float]]]] = {
 
 
 def test():
-    agent = Agent.new(5 * 5, hidden_layers=[5, 5], output_size=10)
+    agent = Agent.new(5 * 5, hidden_layers=[24], output_size=10)
 
     for _ in range(5000):
         for number, data in demo_training_data.items():
@@ -292,11 +292,11 @@ def gui():
         else:
             training_data.setdefault(state, []).append(drawing.grid_data)
             # for _ in range(5):
-                # agent.backpropagate(
-                #     drawing.get_flattened_data(),
-                #     [1 if i == state else 0 for i in range(10)],
-                #     learning_rate=0.1,
-                # )
+            # agent.backpropagate(
+            #     drawing.get_flattened_data(),
+            #     [1 if i == state else 0 for i in range(10)],
+            #     learning_rate=0.1,
+            # )
             prompt.config(
                 text=f"Great! Draw another {state}, or press Next to move on."
             )
@@ -325,7 +325,7 @@ def gui():
                             agent.backpropagate(
                                 [pixel for row in data for pixel in row],
                                 [1 if i == number else 0 for i in range(10)],
-                                learning_rate=0.1
+                                learning_rate=0.1,
                             )
                 prompt.config(text="All done! Now draw a number and press Submit!")
 
@@ -338,14 +338,25 @@ def gui():
     nextButton = tkinter.Button(buttonFrame, text="Next", command=next_state)
     nextButton.pack(side="left")
 
-    saveButton = tkinter.Button(buttonFrame, text="Save", command=lambda: (agent.brain.save("numbers.brain"), prompt.config(text="Brain saved successfully! Draw a number and press Submit!")))
+    saveButton = tkinter.Button(
+        buttonFrame,
+        text="Save",
+        command=lambda: (
+            agent.brain.save("numbers.brain"),
+            prompt.config(
+                text="Brain saved successfully! Draw a number and press Submit!"
+            ),
+        ),
+    )
     saveButton.pack(side="left")
 
     def load_brain():
         nonlocal agent, state
         try:
             agent = Agent(Brain.load("numbers.brain"))
-            prompt.config(text="Brain loaded successfully! Draw a number and press Submit!")
+            prompt.config(
+                text="Brain loaded successfully! Draw a number and press Submit!"
+            )
             state = None
         except Exception as e:
             prompt.config(text=f"Failed to load brain: {e}")
@@ -353,19 +364,23 @@ def gui():
     loadButton = tkinter.Button(buttonFrame, text="Load", command=lambda: load_brain())
     loadButton.pack(side="left")
 
-    def train(training_data: Data, label: int, num_epochs = 5000, learning_rate = 0.1):
+    def train(training_data: Data, label: int, num_epochs=5000, learning_rate=0.1):
         for _ in range(num_epochs):
             agent.backpropagate(
                 [pixel for row in training_data for pixel in row],
                 [1 if i == label else 0 for i in range(10)],
-                learning_rate=learning_rate
+                learning_rate=learning_rate,
             )
         prompt.config(text=f"Trained label {label}.")
         drawing.clear()
 
     labelEntry = tkinter.Entry(buttonFrame)
 
-    trainButton = tkinter.Button(buttonFrame, text="Train", command=lambda: train(drawing.grid_data, int(labelEntry.get()), num_epochs=500))
+    trainButton = tkinter.Button(
+        buttonFrame,
+        text="Train",
+        command=lambda: train(drawing.grid_data, int(labelEntry.get()), num_epochs=500),
+    )
     trainButton.pack(side="left")
 
     labelEntry.pack(side="left")
