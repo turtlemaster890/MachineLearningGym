@@ -52,6 +52,7 @@ class BackpropagationAgent(Agent):
         self.brain._forward_propagate()
 
         output_deltas = []
+        old_weights = [n.weights.copy() for n in self.brain.outputLayer]
         for i, neuron in enumerate(self.brain.outputLayer):
             error = target_output[i] - neuron.output
             delta = error * neuron.output * (1 - neuron.output)
@@ -61,11 +62,12 @@ class BackpropagationAgent(Agent):
             neuron.bias += learning_rate * delta
 
         current_deltas = output_deltas
-        current_weights = [n.weights for n in self.brain.outputLayer]
+        current_weights = old_weights
 
         for i in reversed(range(len(self.brain.hiddenLayers))):
             layer = self.brain.hiddenLayers[i]
             next_deltas = []
+            old_weights = [n.weights.copy() for n in layer]
 
             for j, neuron in enumerate(layer):
                 error = sum(current_weights[k][j] * current_deltas[k] for k in range(len(current_deltas)))
@@ -80,5 +82,4 @@ class BackpropagationAgent(Agent):
                 neuron.bias += learning_rate * delta
 
             current_deltas = next_deltas
-            current_weights = [n.weights for n in layer]
-
+            current_weights = old_weights

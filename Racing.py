@@ -4,6 +4,7 @@ import random
 import pygame
 
 from Agent import EvolutionAgent
+from Brain import Brain
 
 WIDTH, HEIGHT = 1000, 700
 POPULATION_SIZE = 100
@@ -152,7 +153,7 @@ class Car:
         steer = (steer_raw - 0.5) * 2
         throttle: float = lerp(0.35, 1, accel_raw)
 
-        target_speed: float = 105 + throttle * 250
+        target_speed: float = 105 + throttle * 150
         self.speed += (target_speed - self.speed) * min(1, dt * 4)
         self.heading += steer * 3.2 * dt
 
@@ -209,6 +210,7 @@ def main():
     generation = 1
     gen_elapsed: float = 0
     best_all_time: float = 0
+    leader: Car | None = None
 
     cars = [
         Car(EvolutionAgent.new(len(RAY_ANGLES), hidden_layers=[8, 6], output_size=2))
@@ -221,6 +223,32 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.KEYDOWN:
+                if event.type == pygame.K_s:
+                    if leader:
+                        leader.agent.brain.save("racing.brain")
+                    else:
+                        screen.blit(
+                            font.render("No leader to save.", True, (255, 0, 0)),
+                            (16, 40),
+                        )
+                if event.type == pygame.K_l:
+                    try:
+                        brain = Brain.load("racing.brain")
+                        cars[0].agent = EvolutionAgent(brain)
+                        screen.blit(
+                            font.render(
+                                "Brain loaded successfully.", True, (0, 255, 0)
+                            ),
+                            (16, 60),
+                        )
+                    except Exception as e:
+                        screen.blit(
+                            font.render(
+                                f"Failed to load brain: {e}", True, (255, 0, 0)
+                            ),
+                            (16, 60),
+                        )
 
         gen_elapsed += dt
         for car in cars:
@@ -244,7 +272,7 @@ def main():
             car.draw(screen, is_leader=(car is leader))
 
         hud = font.render(
-            f"Generation: {generation} | Alive: {alive_count}/{POPULATION_SIZE} | Best Fitness: {best_all_time:.1f} | Leader Speed: {leader.speed:.1f}",
+            f"Generation: {generation} | Alive: {alive_count}/{POPULATION_SIZE} | Best Fitness: {best_all_time:.1f} | Leader Speed: {leader.speed:.1f}\nUse 'S' to save leader brain, 'L' to load brain.",
             True,
             (255, 255, 255),
         )
