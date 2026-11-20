@@ -1,6 +1,6 @@
 import tkinter
 
-from Agent import Agent
+from Agent import BackpropagationAgent
 from Brain import Brain
 
 demo_training_data: dict[int, list[list[list[float]]]] = {
@@ -168,7 +168,7 @@ demo_training_data: dict[int, list[list[list[float]]]] = {
 
 
 def test():
-    agent = Agent.new(5 * 5, hidden_layers=[24], output_size=10)
+    agent = BackpropagationAgent.new(5 * 5, hidden_layers=[24], output_size=10)
 
     for _ in range(5000):
         for number, data in demo_training_data.items():
@@ -266,7 +266,7 @@ type Data = list[list[float]]
 
 
 def gui():
-    agent = Agent.new(W * H, hidden_layers=[5, 5], output_size=10)
+    agent = BackpropagationAgent.new(W * H, hidden_layers=[16], output_size=10)
 
     training_data: dict[int, list[Data]] = {}
 
@@ -353,7 +353,7 @@ def gui():
     def load_brain():
         nonlocal agent, state
         try:
-            agent = Agent(Brain.load("numbers.brain"))
+            agent = BackpropagationAgent(Brain.load("numbers.brain"))
             prompt.config(
                 text="Brain loaded successfully! Draw a number and press Submit!"
             )

@@ -29,24 +29,24 @@ class Agent:
         self.brain = brain
 
     @classmethod
-    def new(cls, input_size: int, hidden_layers: list[int], output_size: int, activation_function=None):
-        if activation_function is None:
-            activation_function = sigmoid
+    def new(cls, input_size: int, hidden_layers: list[int], output_size: int, activation_function=sigmoid):
 
         return cls(cls._create_brain(input_size, hidden_layers, output_size, activation_function))
 
     def copy(self):
-        return Agent(self.brain.copy())
+        return self.__class__(self.brain.copy())
 
-    def learn_random(self):
+class EvolutionAgent(Agent):
+    def learn_random(self, mutation_rate: float = 0.1):
         for layer in self.brain.hiddenLayers:
             for neuron in layer:
-                neuron.weights = [w + random.gauss(0, 0.1) for w in neuron.weights]
-                neuron.bias += random.gauss(0, 0.1)
+                neuron.weights = [w + random.gauss(0, mutation_rate) for w in neuron.weights]
+                neuron.bias += random.gauss(0, mutation_rate)
         for neuron in self.brain.outputLayer:
-            neuron.weights = [w + random.gauss(0, 0.1) for w in neuron.weights]
-            neuron.bias += random.gauss(0, 0.1)
+            neuron.weights = [w + random.gauss(0, mutation_rate) for w in neuron.weights]
+            neuron.bias += random.gauss(0, mutation_rate)
 
+class BackpropagationAgent(Agent):
     def backpropagate(self, input_data: list[float], target_output: list[float], learning_rate: float):
         self.brain.set_input(input_data)
         self.brain._forward_propagate()
@@ -81,3 +81,4 @@ class Agent:
 
             current_deltas = next_deltas
             current_weights = [n.weights for n in layer]
+
