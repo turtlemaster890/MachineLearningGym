@@ -51,7 +51,7 @@ def mut_agent(
     child = agent.copy()
 
     for layer in child.brain.hiddenLayers:
-        for neuron in layer:
+        for neuron in layer.neurons:
             neuron.weights = [
                 (
                     w + random.gauss(0, mutation_scale)
@@ -63,7 +63,7 @@ def mut_agent(
             if random.random() < mutation_rate:
                 neuron.bias += random.gauss(0, mutation_scale)
 
-    for neuron in child.brain.outputLayer:
+    for neuron in child.brain.outputLayer.neurons:
         neuron.weights = [
             (
                 w + random.gauss(0, mutation_scale)
