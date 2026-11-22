@@ -2,17 +2,48 @@ import math
 
 import pygame
 from Car import Car
+from City import City
 
 
 class Expert:
-    def __init__(self, car: Car, route: list[pygame.Vector2]):
+    def __init__(self, car: Car, city: City, route: list[pygame.Vector2]):
         self.car = car
+        self.city = city
         self.route = route
+
+        self.cruise_speed = 80
+        self.approach_speed = 35
+        self.braking_distance = 120
+        self.stop_buffer = 5
+
         self.target_index = 0
         self.lookahead_distance = 65
 
     def get_target(self) -> pygame.Vector2:
         return self.route[self.target_index]
+
+    def get_target_speed(self) -> float:
+        result = self.city.get_next_intersection(self.car.position, self.car.heading)
+
+        if result is None:
+            return self.cruise_speed
+
+        intersection, approach, distance = result
+        instruction = intersection.get_instruction(approach)
+
+        if instruction == "go":
+            return self.cruise_speed
+
+        if instruction == "caution":
+            return self.approach_speed
+
+        if distance <= self.stop_buffer:
+            return 0
+
+        return min(
+            self.cruise_speed,
+            max(0, distance / self.braking_distance * self.cruise_speed),
+        )
 
     def update_target(self):
         target = self.get_target()
@@ -36,6 +67,14 @@ class Expert:
         return max(-1, min(1, error / 0.6))
 
     def update(self, dt: float):
+        next_intersection = self.city.get_next_intersection(
+            self.car.position, self.car.heading
+        )
+        if next_intersection:
+            intersection, approach, distance = next_intersection
+            instruction = intersection.get_instruction(approach)
+
+            print(instruction, distance)
         self.update_target()
         steer = self.get_steering()
 
@@ -59,17 +98,8 @@ class Expert:
         return self.route[-1]
 
     def draw(self, screen):
-        pygame.draw.lines(
-            screen,
-            (0, 255, 255),
-            False,
-            self.route,
-            2
-        )
+        pygame.draw.lines(screen, (0, 255, 255), False, self.route, 2)
 
         target = self.get_lookahead_target()
 
-        pygame.draw.circle(
-            screen, (255, 0, 255),
-            target, 6
-        )
+        pygame.draw.circle(screen, (255, 0, 255), target, 6)

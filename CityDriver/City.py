@@ -1,3 +1,4 @@
+import math
 from typing import Literal
 
 import pygame
@@ -8,9 +9,8 @@ type Approach = Literal["north", "south", "east", "west"]
 type Instruction = Literal["stop", "go", "yield", "caution"]
 
 class Intersection:
-    def __init__(self, x: int, y: int, control: IntersectionControl = "none"):
-        self.x = x
-        self.y = y
+    def __init__(self, position: pygame.Vector2, control: IntersectionControl = "none"):
+        self.position = position
         self.control: IntersectionControl = control
 
     def update(self, dt: float):
@@ -29,8 +29,8 @@ class Intersection:
 
 
 class TrafficLightIntersection(Intersection):
-    def __init__(self, x: int, y: int):
-        super().__init__(x, y, control="traffic_light")
+    def __init__(self, position: pygame.Vector2):
+        super().__init__(position, control="traffic_light")
         self.phase = 0
         self.phase_timer = 0
 
@@ -71,7 +71,7 @@ class TrafficLightIntersection(Intersection):
         elif phase_name == "ew_yellow":
             ew_colour = yellow
 
-        x, y = self.x, self.y
+        x, y = self.position.x, self.position.y
 
         pygame.draw.circle(screen, ns_colour, (x + 32, y - 48), 7)
         pygame.draw.circle(screen, ns_colour, (x - 32, y + 48), 7)
@@ -110,7 +110,7 @@ class City:
         self.horizontal_roads = [150, 350, 550]
 
         self.intersections: list[Intersection] = [
-            TrafficLightIntersection(x, y)
+            TrafficLightIntersection(pygame.Vector2(x, y))
             for x in self.vertical_roads
             for y in self.horizontal_roads
         ]
@@ -187,7 +187,7 @@ class City:
         half = self.road_width // 2
 
         for intersection in self.intersections:
-            x, y = intersection.x, intersection.y
+            x, y = intersection.position.x, intersection.position.y
 
             pygame.draw.line(
                 screen, white, (x - half, y - half - 5), (x, y - half - 5), 4
@@ -208,3 +208,37 @@ class City:
     def draw_intersections(self, screen: pygame.Surface):
         for intersection in self.intersections:
             intersection.draw(screen)
+
+    def get_next_intersection(self, position: pygame.Vector2, heading: float) -> tuple[Intersection, Approach, float] | None:
+        closest = None
+        closest_distance = float("inf")
+
+        forward = pygame.Vector2(math.cos(heading), math.sin(heading))
+
+        for intersection in self.intersections:
+            difference = intersection.position - position
+
+            forward_distance = difference.dot(forward)
+            side_distance = abs(difference.cross(forward))
+
+            if forward_distance < 0:
+                continue
+
+            if side_distance > self.road_width / 2:
+                continue
+
+            if forward_distance < closest_distance:
+                closest = intersection
+                closest_distance = forward_distance
+
+        if closest is None:
+            return None
+
+        if abs(forward.x) > abs(forward.y):
+            approach = "west" if forward.x > 0 else "east"
+        else:
+            approach = "north" if forward.y > 0 else "south"
+
+        distance_to_stop_line = closest_distance - (self.road_width / 2 + 5)
+
+        return closest, approach, distance_to_stop_line

@@ -38,7 +38,7 @@ def run():
         pygame.Vector2(830, 100),
     ]
 
-    driver = Expert(car, route)
+    driver = Expert(car, city, route)
     # intersection = city.intersections[0]
 
     # print(intersection.get_instruction("north"))
@@ -53,7 +53,9 @@ def run():
         dt = clock.tick(60) / 1000
         city.update(dt)
         steer = driver.update(dt)
-        car.update(steer, 0.5, dt)
+        target_speed = driver.get_target_speed()
+        throttle = 0.5 if car.speed < target_speed else 0
+        car.update(steer, throttle, dt)
 
         # keys = pygame.key.get_pressed()
         # steer = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
