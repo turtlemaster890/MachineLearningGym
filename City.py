@@ -1,4 +1,5 @@
 import math
+import random
 from typing import Literal
 
 import pygame
@@ -114,6 +115,9 @@ class City:
             for x in self.vertical_roads
             for y in self.horizontal_roads
         ]
+        for intersection in self.intersections:
+            if isinstance(intersection, TrafficLightIntersection):
+                intersection.phase_timer = random.random() * 5
 
     def update(self, dt: float):
         for intersection in self.intersections:
@@ -221,7 +225,7 @@ class City:
             forward_distance = difference.dot(forward)
             side_distance = abs(difference.cross(forward))
 
-            if forward_distance < 0:
+            if forward_distance < self.road_width / 2:
                 continue
 
             if side_distance > self.road_width / 2:

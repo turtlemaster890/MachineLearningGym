@@ -15,12 +15,11 @@ class Car:
     def update(self, steer: float, throttle: float, dt: float) -> None:
         self.heading += steer * 2.5 * dt
 
-        if throttle > 0:
+        if throttle >= 0:
             self.speed += throttle * 100 * dt
         else:
-            self.speed -= 180 * dt
-        self.speed += throttle * 100 * dt
-        
+            self.speed += throttle * 180 * dt
+
         self.speed = max(0, min(self.speed, 120))
 
         direction = pygame.Vector2(math.cos(self.heading), math.sin(self.heading))

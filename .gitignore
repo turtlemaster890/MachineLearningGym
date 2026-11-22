@@ -29,3 +29,9 @@ Thumbs.db
 # Logs and brain files
 *.brain
 *.brain.old
+*.pkl
+
+# PyInstaller
+/dist
+/build
+NeuralNetworkDemo.spec

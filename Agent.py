@@ -1,3 +1,4 @@
+import math
 import random
 
 from Brain import (
@@ -137,49 +138,60 @@ class ConvolutionalAgent(Agent):
         hidden_layer_activation: ActivationFunction = SIGMOID,
         output_layer_activation: ActivationFunction = SIGMOID,
         input_channels: int = 3,
+        filters_per_layer: int | list[int] = 1,
     ) -> ConvolutionalBrain:
+        if isinstance(filters_per_layer, int):
+            filters_per_layer = [filters_per_layer] * len(conv_sizes)
+
+        def dense_layer(n_in: int, n_out: int, activation: ActivationFunction) -> Layer:
+            scale = 1 / math.sqrt(n_in)
+            return Layer(
+                [
+                    Neuron([random.gauss(0, scale) for _ in range(n_in)], 0.0)
+                    for _ in range(n_out)
+                ],
+                activation,
+            )
+
         prev_image_size = input_image_size
-        conv_layers: list[ConvolutionalLayer] = []
         prev_channels = input_channels
-        for filter_size in conv_sizes:
-            filter_width, filter_height = filter_size
-            filter_weights: list[list[list[float]]] = [
-                [[0] * filter_width for _ in range(filter_height)]
-                for _ in range(prev_channels)
+        conv_layers: list[ConvolutionalLayer] = []
+
+        for (filter_width, filter_height), n_filters in zip(
+            conv_sizes, filters_per_layer
+        ):
+            scale = 1 / math.sqrt(prev_channels * filter_width * filter_height)
+            filters = [
+                Filter(
+                    [
+                        [
+                            [random.gauss(0, scale) for _ in range(filter_width)]
+                            for _ in range(filter_height)
+                        ]
+                        for _ in range(prev_channels)
+                    ],
+                    0.0,
+                )
+                for _ in range(n_filters)
             ]
-            for c in range(prev_channels):
-                for w in range(filter_width):
-                    for h in range(filter_height):
-                        filter_weights[c][h][w] = random.gauss(0, 1)
-            bias = random.gauss(0, 1)
-            filter = Filter(filter_weights, bias)
-            conv_layer = ConvolutionalLayer([filter], conv_activation)
-            conv_layers.append(conv_layer)
+            conv_layers.append(ConvolutionalLayer(filters, conv_activation))
             prev_image_size = (
                 prev_image_size[0] - filter_height + 1,
                 prev_image_size[1] - filter_width + 1,
             )
-            prev_channels = len(conv_layer.filters)
+            prev_channels = n_filters
 
         prev_size = prev_channels * prev_image_size[0] * prev_image_size[1]
         input_size = prev_size
+
         hidden_layers: list[Layer] = []
         for layer_size in hidden_layer_sizes:
-            layer_neurons = []
-            for _ in range(layer_size):
-                weights = [random.gauss(0, 1) for _ in range(prev_size)]
-                bias = random.gauss(0, 1)
-                layer_neurons.append(Neuron(weights, bias))
-            layer = Layer(layer_neurons, hidden_layer_activation)
-            hidden_layers.append(layer)
+            hidden_layers.append(
+                dense_layer(prev_size, layer_size, hidden_layer_activation)
+            )
             prev_size = layer_size
 
-        output_neurons = []
-        for _ in range(output_size):
-            weights = [random.gauss(0, 1) for _ in range(prev_size)]
-            bias = random.gauss(0, 1)
-            output_neurons.append(Neuron(weights, bias))
-        output_layer = Layer(output_neurons, output_layer_activation)
+        output_layer = dense_layer(prev_size, output_size, output_layer_activation)
 
         return ConvolutionalBrain(
             conv_layers,
@@ -199,6 +211,7 @@ class ConvolutionalAgent(Agent):
         hidden_layer_activation: ActivationFunction = SIGMOID,
         output_layer_activation: ActivationFunction = SIGMOID,
         input_channels: int = 3,
+        filters_per_layer: int | list[int] = 1,
     ):
         return cls(
             cls._create_convolutional_brain(
@@ -210,6 +223,7 @@ class ConvolutionalAgent(Agent):
                 hidden_layer_activation,
                 output_layer_activation,
                 input_channels,
+                filters_per_layer,
             )
         )
 
