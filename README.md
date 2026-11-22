@@ -1,5 +1,7 @@
 Neural Network Agents framework in python
 
+<img width="305" height="364" alt="image" src="https://github.com/user-attachments/assets/740e7595-4276-44ae-8c87-4423d4da2974" />
+
 Has both simple weights networks and convolutional networks, both with backpropagation for learning
 
 Has agent abstractions, including an evolutionary agent for things like racing agents
