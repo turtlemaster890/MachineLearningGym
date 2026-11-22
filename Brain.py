@@ -84,74 +84,114 @@ class Layer:
 
 type Image = list[list[float]]
 
+type Volume = list[Image]
+
 type Error = Image
+
+
+@dataclass
+class Filter:
+    weights: Volume
+    bias: float
+
+    def apply_to_cell(self, volume: Volume, i: int, j: int) -> float:
+        C = len(self.weights)
+        fH, fW = len(self.weights[0]), len(self.weights[0][0])
+        total = self.bias
+        for c in range(C):
+            for k in range(fH):
+                for l in range(fW):
+                    total += self.weights[c][k][l] * volume[c][i + k][j + l]
+        return total
+
+    def copy(self) -> Filter:
+        copied_weights = [[row.copy() for row in channel] for channel in self.weights]
+        return Filter(copied_weights, self.bias)
 
 
 class ConvolutionalLayer:
     def __init__(
         self,
-        filter: list[list[float]],
-        bias: float,
+        filters: list[Filter],
         activation_function: ActivationFunction = RELU,
     ):
-        self.filter = filter
-        self.bias = bias
+        self.filters = filters
         self.activation_function = activation_function
 
-        self.last_image: Image | None = None
-        self.last_output: Image | None = None
+        self.last_input: Volume | None = None
+        self.last_output: Volume | None = None
 
-    def apply(self, image: list[list[float]]) -> list[list[float]]:
-        self.last_image = image
-        fH, fW = len(self.filter), len(self.filter[0])
-        iH, iW = len(image), len(image[0])
-        outW, outH = iW - fW + 1, iH - fH + 1
-        out: list[list[float]] = [[0] * (outW) for _ in range(outH)]
-        self.last_output = [[0] * (outW) for _ in range(outH)]
-        for i in range(outH):
-            for j in range(outW):
-                total = self.bias
-                for k in range(fH):
-                    for l in range(fW):
-                        total += image[i + k][j + l] * self.filter[k][l]
-                val = self.activation_function.func(total)
-                out[i][j] = val
-                self.last_output[i][j] = val
+    def apply(self, volume: Volume) -> Volume:
+        self.last_input = volume
+        C, iH, iW = len(volume), len(volume[0]), len(volume[0][0])
+        fH, fW = len(self.filters[0].weights[0]), len(self.filters[0].weights[0][0])
+        outH, outW = iH - fH + 1, iW - fW + 1
+
+        out: Volume = []
+
+        for filter in self.filters:
+            feat_map: Image = [[0] * outW for _ in range(outH)]
+            for i in range(outH):
+                for j in range(outW):
+                    feat_map[i][j] = self.activation_function.func(
+                        filter.apply_to_cell(volume, i, j)
+                    )
+            out.append(feat_map)
+
+        self.last_output = out
         return out
 
-    def _backpropagate(self, error: Error, learning_rate: float) -> Error:
-        assert self.last_image is not None
+    def _backpropagate(self, error: Volume, learning_rate: float) -> Volume:
+        assert self.last_input is not None
         assert self.last_output is not None
-        eH, eW = len(error), len(error[0])
-        fH, fW = len(self.filter), len(self.filter[0])
-        inputError: Image = [[0] * (eW + fW - 1) for _ in range(eH + fH - 1)]
-        filterNudge: Error = [[0] * fW for _ in range(fH)]
-        biasNudge = 0
-        for i in range(eH):
-            for j in range(eW):
-                e = error[i][j] * self.activation_function.slope(self.last_output[i][j])
-                for k in range(fH):
-                    for l in range(fW):
-                        filterNudge[k][l] += e * self.last_image[i + k][j + l]
-                        inputError[i + k][j + l] += e * self.filter[k][l]
-                biasNudge += e
-        for k in range(fH):
-            for l in range(fW):
-                self.filter[k][l] += learning_rate * filterNudge[k][l]
-        self.bias += learning_rate * biasNudge
+        oH, oW = len(self.last_output[0]), len(self.last_output[0][0])
+        # fH, fW = len(self.filters[0].weights), len(self.filters[0].weights[0])
+        inputError: Volume = [
+            [[0] * len(self.last_input[0][0]) for _ in range(len(self.last_input[0]))]
+            for _ in range(len(self.last_input))
+        ]
+        filterNudges: list[Volume] = [
+            [
+                [[0] * len(f.weights[0][0]) for _ in range(len(f.weights[0]))]
+                for _ in range(len(f.weights))
+            ]
+            for f in self.filters
+        ]
+        biasNudges: list[float] = [0] * len(self.filters)
+        for i in range(oH):
+            for j in range(oW):
+                for idx, filter in enumerate(self.filters):
+                    delta = error[idx][i][j] * self.activation_function.slope(
+                        self.last_output[idx][i][j]
+                    )
+                    biasNudges[idx] += delta
+                    for c in range(len(filter.weights)):
+                        for k in range(len(filter.weights[0])):
+                            for l in range(len(filter.weights[0][0])):
+                                filterNudges[idx][c][k][l] += (
+                                    delta * self.last_input[c][i + k][j + l]
+                                )
+                                inputError[c][i + k][j + l] += (
+                                    delta * filter.weights[c][k][l]
+                                )
+        for idx, filter in enumerate(self.filters):
+            for c in range(len(filter.weights)):
+                for k in range(len(filter.weights[0])):
+                    for l in range(len(filter.weights[0][0])):
+                        filter.weights[c][k][l] += (
+                            learning_rate * filterNudges[idx][c][k][l]
+                        )
+        for idx, filter in enumerate(self.filters):
+            filter.bias += learning_rate * biasNudges[idx]
 
         return inputError
 
     def copy(self) -> ConvolutionalLayer:
-        copied_layer = ConvolutionalLayer(
-            [row.copy() for row in self.filter], self.bias, self.activation_function
-        )
+        copied_filters = [
+            f.copy() for f in self.filters
+        ]
+        copied_layer = ConvolutionalLayer(copied_filters, self.activation_function)
         return copied_layer
-
-
-class ConvolutionalLayerDict(TypedDict):
-    filter: list[list[float]]
-    bias: float
 
 
 class Brain:
@@ -278,25 +318,30 @@ class Brain:
         return cls._load(data, activation_function)
 
 
+class ConvolutionalLayerDict(TypedDict):
+    filter: Volume
+    bias: float
+
+
 class ConvolutionalBrainDict(BrainDict):
-    convLayers: list[ConvolutionalLayerDict]
+    convLayers: list[list[ConvolutionalLayerDict]]
 
 
 class ConvolutionalBrain(Brain):
     def __init__(self, convs: list[ConvolutionalLayer], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.convs = convs
-        self.image: list[list[float]] = []
+        self.volume: Volume = []
 
     def _forward_propagate(self):
-        x = self.image
+        x = self.volume
         for c in self.convs:
             x = c.apply(x)
-        self.inputLayer = [pixel for row in x for pixel in row]
+        self.inputLayer = [pixel for channel in x for row in channel for pixel in row]
         super()._forward_propagate()
 
-    def predict_image(self, image: list[list[float]]) -> list[float]:
-        self.image = image
+    def predict_image(self, volume: Volume) -> list[float]:
+        self.volume = volume
         self._forward_propagate()
         return self.get_output()
 
@@ -304,13 +349,18 @@ class ConvolutionalBrain(Brain):
         s = super()._save()
         return {
             **s,
-            "convLayers": [{"filter": c.filter, "bias": c.bias} for c in self.convs],
+            "convLayers": [
+                [{"filter": f.weights, "bias": f.bias} for f in c.filters]
+                for c in self.convs
+            ],
         }
 
     @classmethod
     def _load(cls, data: ConvolutionalBrainDict, activation_function: ActivationFunction = SIGMOID) -> Self:  # type: ignore
         conv_layers = [
-            ConvolutionalLayer(c["filter"], c["bias"], activation_function)
+            ConvolutionalLayer(
+                [Filter(f["filter"], f["bias"]) for f in c], activation_function
+            )
             for c in data["convLayers"]
         ]
         return cls(
